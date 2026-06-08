@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils import credentials_sidebar, credentials_valid, run_script, save_uploaded_file, save_text_as_file, REPO_ROOT
+from utils import credentials_sidebar, credentials_valid, run_script, save_uploaded_file, save_text_as_file, get_repo_root
 
 credentials_sidebar()
 st.title("Get Metadata")
@@ -99,7 +99,7 @@ if st.button("Run", type="primary"):
 
     if returncode == 0:
         st.success("Completed successfully.")
-        output_path = Path(output_csv) if Path(output_csv).is_absolute() else REPO_ROOT / output_csv
+        output_path = Path(output_csv) if Path(output_csv).is_absolute() else get_repo_root() / output_csv
         if output_path.exists():
             st.download_button(
                 "Download CSV",

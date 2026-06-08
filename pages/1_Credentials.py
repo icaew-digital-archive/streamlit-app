@@ -3,10 +3,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils import load_env_file, write_env_file, ENV_FILE
+from utils import load_env_file, write_env_file, get_env_file
 
 st.title("Credentials")
-st.caption(f"Editing: `{ENV_FILE}`")
+st.caption(f"Editing: `{get_env_file()}`")
 
 current = load_env_file()
 

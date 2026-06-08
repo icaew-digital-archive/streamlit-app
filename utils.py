@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import subprocess
@@ -6,39 +7,90 @@ from pathlib import Path
 
 import streamlit as st
 
-REPO_ROOT = Path(__file__).parent.parent / "digital-archiving-scripts"
-PYPRESERVICA_DIR = REPO_ROOT / "pypreservica scripts"
-CSV_TOOLS_DIR = REPO_ROOT / "csv-tools"
-VIDEO_INGEST_DIR = PYPRESERVICA_DIR / "pypreservica-video-package-ingest"
-SEMAPHORE_DIR = Path("/home/digital-archivist/Documents/custom scripts/semaphore-classification-python")
-ENV_FILE = REPO_ROOT / ".env"
+PATHS_CONFIG = Path(__file__).parent / "paths.json"
 
+_DEFAULT_REPO_ROOT = Path(__file__).parent.parent / "digital-archiving-scripts"
+_DEFAULT_SEMAPHORE_DIR = Path("/home/digital-archivist/Documents/custom scripts/semaphore-classification-python")
 
-SCRIPTS = {
-    "get_metadata":    PYPRESERVICA_DIR / "a_get_metadata.py",
-    "delete_metadata": PYPRESERVICA_DIR / "b_delete_metadata.py",
-    "add_metadata":    PYPRESERVICA_DIR / "c_add_metadata_from_csv.py",
-    "update_xip":      PYPRESERVICA_DIR / "d_update_xip_from_csv.py",
-    "download":        PYPRESERVICA_DIR / "download_preservica_assets.py",
-    "move":            PYPRESERVICA_DIR / "move_preservica_assets.py",
-    "build_tree":      PYPRESERVICA_DIR / "build_preservica_tree.py",
-    "thumbnails":      PYPRESERVICA_DIR / "remove_thumbnails.py",
-    "csv_merge":       CSV_TOOLS_DIR / "csv_merge.py",
-    "score_metadata":  CSV_TOOLS_DIR / "score_metadata.py",
-    "video_ingest":    VIDEO_INGEST_DIR / "video_subtitle_package_ingest.py",
-    "semaphore":       SEMAPHORE_DIR / "semaphore_helper.py",
+REPO_URLS = {
+    "digital-archiving-scripts": "https://github.com/icaew-digital-archive/digital-archiving-scripts",
+    "semaphore-classification-python": "https://github.com/icaew-digital-archive/semaphore-classification-python",
 }
 
-SCRIPT_CWD = {
-    "semaphore": SEMAPHORE_DIR,
-}
+
+def load_paths_config() -> dict:
+    if PATHS_CONFIG.exists():
+        try:
+            return json.loads(PATHS_CONFIG.read_text())
+        except Exception:
+            pass
+    return {}
+
+
+def save_paths_config(values: dict):
+    existing = load_paths_config()
+    existing.update(values)
+    PATHS_CONFIG.write_text(json.dumps(existing, indent=2))
+
+
+def get_repo_root() -> Path:
+    cfg = load_paths_config()
+    if cfg.get("repo_root"):
+        return Path(cfg["repo_root"])
+    return _DEFAULT_REPO_ROOT
+
+
+def get_semaphore_dir() -> Path:
+    cfg = load_paths_config()
+    if cfg.get("semaphore_dir"):
+        return Path(cfg["semaphore_dir"])
+    return _DEFAULT_SEMAPHORE_DIR
+
+
+def get_env_file() -> Path:
+    return Path(__file__).parent / ".env"
+
+
+def repos_present() -> dict:
+    """Returns dict with 'main' and 'semaphore' bools indicating which repos exist."""
+    return {
+        "main": get_repo_root().exists(),
+        "semaphore": get_semaphore_dir().exists(),
+    }
+
+
+def _get_scripts() -> dict:
+    repo_root = get_repo_root()
+    pypreservica = repo_root / "pypreservica scripts"
+    csv_tools = repo_root / "csv-tools"
+    video_ingest = pypreservica / "pypreservica-video-package-ingest"
+    semaphore = get_semaphore_dir()
+    return {
+        "get_metadata":    pypreservica / "a_get_metadata.py",
+        "delete_metadata": pypreservica / "b_delete_metadata.py",
+        "add_metadata":    pypreservica / "c_add_metadata_from_csv.py",
+        "update_xip":      pypreservica / "d_update_xip_from_csv.py",
+        "download":        pypreservica / "download_preservica_assets.py",
+        "move":            pypreservica / "move_preservica_assets.py",
+        "build_tree":      pypreservica / "build_preservica_tree.py",
+        "thumbnails":      pypreservica / "remove_thumbnails.py",
+        "csv_merge":       csv_tools / "csv_merge.py",
+        "score_metadata":  csv_tools / "score_metadata.py",
+        "video_ingest":    video_ingest / "video_subtitle_package_ingest.py",
+        "semaphore":       semaphore / "semaphore_helper.py",
+    }
+
+
+def _get_script_cwd() -> dict:
+    return {"semaphore": get_semaphore_dir()}
 
 
 def load_env_file():
     """Read key=value pairs from the repo .env file. Returns dict of keys to values."""
     result = {}
-    if ENV_FILE.exists():
-        for line in ENV_FILE.read_text().splitlines():
+    env_file = get_env_file()
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
             line = line.strip()
             if line and "=" in line and not line.startswith("#"):
                 key, _, value = line.partition("=")
@@ -48,10 +100,11 @@ def load_env_file():
 
 def write_env_file(values: dict):
     """Write credential keys to the repo .env file, preserving other keys."""
+    env_file = get_env_file()
     existing = {}
     lines = []
-    if ENV_FILE.exists():
-        for line in ENV_FILE.read_text().splitlines():
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
             stripped = line.strip()
             if stripped and "=" in stripped and not stripped.startswith("#"):
                 key, _, _ = stripped.partition("=")
@@ -64,7 +117,7 @@ def write_env_file(values: dict):
         else:
             lines.append(f"{key}={value}")
 
-    ENV_FILE.write_text("\n".join(lines) + "\n")
+    env_file.write_text("\n".join(lines) + "\n")
 
 
 def credentials_valid():
@@ -121,18 +174,18 @@ def run_script(script_key, args, stdin_input=None):
     If stdin_input is a string, it is fed to the process stdin (used for
     scripts that prompt for confirmation).
     """
-    script_path = SCRIPTS[script_key]
+    scripts = _get_scripts()
+    script_path = scripts[script_key]
     cmd = [sys.executable, str(script_path)] + [str(a) for a in args]
 
     env = os.environ.copy()
     env.update(load_env_file())
     env["PYTHONUNBUFFERED"] = "1"
-    env["DOWNLOAD_SCRIPT"] = str(SCRIPTS["download"])
+    env["DOWNLOAD_SCRIPT"] = str(scripts["download"])
 
-    cwd = str(SCRIPT_CWD.get(script_key, REPO_ROOT))
+    cwd = str(_get_script_cwd().get(script_key, get_repo_root()))
 
     if stdin_input is not None:
-        # Use communicate() to avoid pipe deadlock when stdin is needed
         with st.spinner("Running..."):
             try:
                 result = subprocess.run(

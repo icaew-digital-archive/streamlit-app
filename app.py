@@ -141,7 +141,7 @@ Use the sidebar to navigate between tools.
 
 | Tool | Description |
 |------|-------------|
-| **Credentials** | Configure Preservica connection settings |
+| **Credentials and Configuration** | Configure Preservica credentials and project folder paths |
 | **Get Metadata** | Export metadata and checksums from Preservica to CSV |
 | **Delete Metadata** | Remove DC and ICAEW metadata from assets or folders |
 | **Add Metadata** | Add DC/ICAEW metadata to assets from a CSV |
@@ -167,7 +167,7 @@ if not presence["main"]:
 else:
     pg = st.navigation([
         st.Page(home, title="Home"),
-        st.Page("pages/1_Credentials.py",    title="Credentials"),
+        st.Page("pages/1_Credentials.py",    title="Credentials and Configuration"),
         st.Page("pages/2_Get_Metadata.py",   title="Get Metadata"),
         st.Page("pages/3_Delete_Metadata.py",title="Delete Metadata"),
         st.Page("pages/4_Add_Metadata.py",   title="Add Metadata"),
